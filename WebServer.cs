@@ -82,15 +82,38 @@ public class WebServer
         stream.Write(content, 0, content.Length);
     }
 
-    private void SendError(StreamWriter writer, int statusCode, string message)
+    private void LogRequest(string method, string path, int statusCode)
     {
-        string html = $"<html><head><title>{statusCode} {message}</title></head><body><h1>Error {statusCode}: {message}</h1></body></html>";
+        string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {method} {path} => {statusCode}";
+        File.AppendAllText("requests.log", logLine + Environment.NewLine);
+    }
+
+
+    private void SendError(StreamWriter writer, int statusCode, string message, string method = "GET", string path = "/")
+    {
+        string errorFilePath = Path.Combine(webRoot, "error.html");
+        string html;
+
+        if (File.Exists(errorFilePath))
+        {
+            html = File.ReadAllText(errorFilePath)
+                .Replace("{{statusCode}}", statusCode.ToString())
+                .Replace("{{message}}", message);
+        }
+        else
+        {
+            html = $"<html><head><title>{statusCode} {message}</title></head><body><h1>Error {statusCode}: {message}</h1></body></html>";
+        }
+
         writer.WriteLine($"HTTP/1.1 {statusCode} {message}");
         writer.WriteLine("Content-Type: text/html");
         writer.WriteLine($"Content-Length: {Encoding.UTF8.GetByteCount(html)}");
         writer.WriteLine();
         writer.Write(html);
+
+        LogRequest(method, path, statusCode);
     }
+
 
     private bool IsSupportedExtension(string ext) =>
         ext == ".html" || ext == ".css" || ext == ".js";
